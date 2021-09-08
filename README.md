@@ -22,7 +22,7 @@ e^(-(2^3)(tau_0^2)|f|/T)
 
 where tau_0 is the time sampling period, T is the length of the data being filtered, and f is the discrete frequency variable.
 
-![image](https://user-images.githubusercontent.com/39776793/132553096-43f89a61-8401-44d8-8c01-e5237bba2186.png)
+![image](https://user-images.githubusercontent.com/39776793/132553213-358285a6-65dd-4c16-8ad0-40e3470b984a.png)
 
 
 A final complication arises because the fft treats the data as periodic, so it will try to match the first point to the last, which can result in an up-tick or down-tick at the end of the data, where we are trying to match. The solution is to pad the data with a flipped copy of itself on either side before filtering, and use the points of reflection for the matching.

@@ -1,6 +1,13 @@
 # Data-gap-fill
 A script to fill in missing time series points in a way that preserves the characteristics of the noise in the dataset
 ![image](https://user-images.githubusercontent.com/39776793/132546232-6f5c83db-d535-44ee-8dcf-b70481f8d5b8.png)
+# How to use the script
+
+Ensure that fillgaps.py, runFillgaps.py, and the csv or txt file you want to fill are in the same folder. 
+Also make sure that the csv or text file is formatted as two (comma delimited) columns, the first being the time of the data collected in MJD, and the second being the data, nominally the clock residual in microseconds.
+
+Simply change the name of the file in runFillgaps.py and run this file in python.
+
 # About the algorithm
 The algorithm is descried in "Characterizing Frequency Stability Measurements having Multiple Data Gaps" by D. A. Howe and N. Schlossberger.
 The gaps are filled via taking the nearest continuous data run of sufficient length, flipping it both horizontally and vertically, and matching the endpoints such that the resulting data is continuous.

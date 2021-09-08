@@ -416,8 +416,8 @@ def fillgaps(datafile):
 
     fig, ax = plt.subplots(2, figsize=(12, 8))
     ax[0].set_title("Original Data")
-    ax[0].errorbar(x, y, fmt=".")
-    ax[0].errorbar(xfilled, filter_all(data), fmt=".",alpha=.3)
+    ax[0].scatter(x, y, fmt=".")
+    ax[0].scatter(xfilled, filter_all(data), fmt=".",alpha=.3)
     ax[0].grid(True)
     #ax[0].set_xlabel("MJD")
     ax[0].set_ylabel("Residuals (us)")
@@ -519,7 +519,7 @@ def fillgaps(datafile):
             zip(xfilled, data)
         )  # write results into csv file in same format as input
 
-    ax[1].errorbar(xfilled, data, fmt=".")
+    ax[1].scatter(xfilled, data, fmt=".")
     ax[1].grid(True)
     ax[1].set_xlabel("MJD")
     ax[1].set_ylabel("Residuals (us)")

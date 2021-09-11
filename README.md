@@ -29,5 +29,12 @@ A final complication arises because the fft treats the data as periodic, so it w
 
 ![image](https://user-images.githubusercontent.com/39776793/132553286-23cb80fa-73fa-4a8d-87dc-11b23307b7e7.png)
 
+The algorithm is designed to preserve the noise characteristics of the data. To demonstrate this, it is applied to each main type of noise present in clocks below.
+![image](https://user-images.githubusercontent.com/39776793/132937067-cf3838cb-cad7-4db3-a329-350d41ce05aa.png)
+![image](https://user-images.githubusercontent.com/39776793/132937061-a0306390-52e8-4db9-994b-a7e00cfdc45b.png)
+![image](https://user-images.githubusercontent.com/39776793/132937075-d98c8417-16c1-411c-ad52-f2fb50995a53.png)
+![image](https://user-images.githubusercontent.com/39776793/132937084-2ec95a38-7005-48fc-8458-59e8bb3fa806.png)
+On the top right are plots of the allan deviation as a function of averaging time of the original data (black) and recovered data (blue). On the bottom right are histograms. All noise types are unaffected by these metrics in masking and recovering through this code.
+
 # Authors
 Written by Noah Schlossberger and Chloe Champagne. Chloe wrote the code to process the data, find the gaps, and address them, while Noah wrote the code to match endpoints, including the filtering function to avoid matching to outliers and high frequency noise.

@@ -4,7 +4,6 @@ Howe and Schlossberger, "Strategy for Characterizing Frequency Stability Measure
 """
 
 import sys
-import argparse
 import numpy as np
 import copy
 import csv
@@ -148,7 +147,7 @@ def check_both_sides(data, gaps, curgap, curgap_size, curgap_num, gap_total):
                 data[int(curgap[0] - curgap_size / 2) : (curgap[0])]
             )
             pts_to_reflect_right = copy.deepcopy(
-                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) + 1]
+                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) ]#+ 1]
             )
             return pts_to_reflect_left, pts_to_reflect_right
         else:  # not enough space on one/both sides
@@ -167,7 +166,7 @@ def check_both_sides(data, gaps, curgap, curgap_size, curgap_num, gap_total):
                 data[int(curgap[0] - curgap_size / 2) : (curgap[0])]
             )
             pts_to_reflect_right = copy.deepcopy(
-                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) + 1]
+                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) ]#+ 1]
             )
             return pts_to_reflect_left, pts_to_reflect_right
         elif (curgap_num != gap_total) and (
@@ -177,7 +176,7 @@ def check_both_sides(data, gaps, curgap, curgap_size, curgap_num, gap_total):
                 data[int(curgap[0] - curgap_size / 2) : (curgap[0])]
             )
             pts_to_reflect_right = copy.deepcopy(
-                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) + 1]
+                data[(curgap[1] + 1) : int(curgap[1] + 1 + curgap_size / 2) ]#+ 1]
             )
             return pts_to_reflect_left, pts_to_reflect_right
         else:  # not enough space on one/both sides
@@ -222,7 +221,7 @@ def check_left(data, gaps, curgap, curgap_size, curgap_num, gap_total):
         return pts_to_reflect
 
 
-def fill(data, gaps, gap_total, gap_num, xcoords, reverse=False):
+def fill(data, gaps, gap_total, gap_num, xcoords, reverse = False):
     """A method to fill the gap_num-th gap in the data by reflecting and inverting data on one/both sides of the gap.
 
     Parameters:
@@ -231,7 +230,6 @@ def fill(data, gaps, gap_total, gap_num, xcoords, reverse=False):
             gap_total - int, total number of gaps
             gap_num - int, number of current gap
             xcoords - np.array, the x-coordinates corresponding to the data and gaps
-            reverse - bool, indicated whether dataset forward-oriented (gap being filled to the right of longest continuous data run) or reversed (left of longest run)
     """
     # find size of gap
     curgap = gaps[gap_num]
@@ -239,41 +237,88 @@ def fill(data, gaps, gap_total, gap_num, xcoords, reverse=False):
     side = None
     # check if there is enough data previous to this gap
     
-    if curgap[0] < size:
-        # if not enough previous data, check data following gap
-        pts_to_reflect, side = check_right(
-            data, gaps, curgap, size, gap_num, gap_total
-        )
-        if pts_to_reflect is None:
-            # increment gap_to_impute - will come back to this gap once rest of right-sided gaps filled
-            gap_num = gap_num + 1
-        
+    if reverse:
+        if curgap[1] > len(data) - size:
+            # if not enough previous data (right-hand since flipped), check data following gap
+            pts_to_reflect, side = check_left(
+                data, gaps, curgap, size, gap_num, gap_total
+            )
+            if pts_to_reflect is None:
+                # decrement gap_num - will come back to this gap once rest of left-sided gaps filled
+                gap_num = gap_num - 1
+            elif type(pts_to_reflect) == tuple:
+                left_pts_to_reflect = pts_to_reflect[0]
+                right_pts_to_reflect = pts_to_reflect[1]
+            elif pts_to_reflect == "Done":
+                return None
+
+        else:
+            pts_to_reflect, side = check_right(
+                data, gaps, curgap, size, gap_num, gap_total
+            )
+            if pts_to_reflect is None:
+                # decrement gap_num - will come back to this gap once rest of left-sided gaps filled
+                gap_num = gap_num - 1
+            elif type(pts_to_reflect) == tuple:
+                left_pts_to_reflect = pts_to_reflect[0]
+                right_pts_to_reflect = pts_to_reflect[1]
+            elif pts_to_reflect == "Done":
+                return None
 
     else:
-        pts_to_reflect, side = check_left(
-            data, gaps, curgap, size, gap_num, gap_total
-        )
-        if pts_to_reflect is None:
-            # increment gap_to_impute - will come back to this gap once rest of right-sided gaps filled
-            gap_num = gap_num + 1
+        if curgap[0] < size:
+            # if not enough previous data, check data following gap
+            pts_to_reflect, side = check_right(
+                data, gaps, curgap, size, gap_num, gap_total
+            )
+            if pts_to_reflect is None:
+                # increment gap_to_impute - will come back to this gap once rest of right-sided gaps filled
+                gap_num = gap_num + 1
+            elif type(pts_to_reflect) == tuple:
+                left_pts_to_reflect = pts_to_reflect[0]
+                right_pts_to_reflect = pts_to_reflect[1]
+
+        else:
+            pts_to_reflect, side = check_left(
+                data, gaps, curgap, size, gap_num, gap_total
+            )
+            if pts_to_reflect is None:
+                # increment gap_to_impute - will come back to this gap once rest of right-sided gaps filled
+                gap_num = gap_num + 1
+            elif type(pts_to_reflect) == tuple:
+                left_pts_to_reflect = pts_to_reflect[0]
+                right_pts_to_reflect = pts_to_reflect[1]
         
     # impute the gap
     if pts_to_reflect is not None:
-        # invert fill points
-        pts_to_reflect = -pts_to_reflect
-        # reflect the points across the gap
-        pts_to_reflect = np.flip(pts_to_reflect)
+        if type(pts_to_reflect) == tuple:
+            left_pts_to_reflect = - np.flip(left_pts_to_reflect)
+            filt_left_pts_to_refect = filterfunction(left_pts_to_reflect)
+            right_pts_to_reflect = - np.flip(right_pts_to_reflect)
+            filt_right_pts_to_reflect = filterfunction(left_pts_to_reflect)
+            right_pts_to_reflect = right_pts_to_reflect + (filt_left_pts_to_refect[-1]-filt_right_pts_to_reflect[0]) #match the two reflected data parts in the middle
+            if (size / 2) % 2 == 0.5:
+                mid_val = (left_pts_to_reflect[0] + right_pts_to_reflect[-1]) / 2
+                left_pts_to_reflect = np.append(left_pts_to_reflect,mid_val)
+            pts_to_reflect = np.append(left_pts_to_reflect,right_pts_to_reflect) #combine left and right reflections
+        
+        else:
+            # invert fill points
+            pts_to_reflect = -pts_to_reflect
+            # reflect the points across the gap
+            pts_to_reflect = np.flip(pts_to_reflect)
         
         # Match endpoints
         filt_pts_to_reflect = filterfunction(pts_to_reflect)
         filt_data = filter_all(data)
         start_diff = filt_data[curgap[0]-1]-filt_pts_to_reflect[0]
         end_diff = filt_data[curgap[-1]+1]-filt_pts_to_reflect[-1]
-        line_to_add = np.arange(start_diff,end_diff,(end_diff-start_diff)/size)
+        line_to_add = np.arange(start_diff,end_diff,(end_diff-start_diff)/(size-.1))
         
+            
         # Insert imputed points
         data[curgap[0] : (curgap[1] + 1)] = pts_to_reflect + line_to_add
-      
+        
         # remove gap
         if gap_num == gap_total:
             gaps.pop(gap_num)
@@ -384,7 +429,10 @@ def fillgaps(datafile):
             while lines:
                 vals = lines.split(",")
                 x = np.append(x, float(vals[0]))
-                y.append(float(vals[1]))
+                try:
+                    y.append(float(vals[1]))
+                except:
+                    y.append(np.nan)
                 lines = f.readline()
     elif datafile[-4:] == ".txt":  # if .txt file entered
         with open(datafile, "r") as f:
@@ -416,8 +464,8 @@ def fillgaps(datafile):
 
     fig, ax = plt.subplots(2, figsize=(12, 8))
     ax[0].set_title("Original Data")
-    ax[0].scatter(x, y, fmt=".")
-    ax[0].scatter(xfilled, filter_all(data), fmt=".",alpha=.3)
+    ax[0].scatter(x, y, marker = '.')
+    ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
     ax[0].grid(True)
     #ax[0].set_xlabel("MJD")
     ax[0].set_ylabel("Residuals (us)")
@@ -491,7 +539,7 @@ def fillgaps(datafile):
     while gap_total != 0:
         while gap_to_impute <= gap_total and gap_to_impute != 0:
             gap_to_impute, gap_total = fill(
-                data, gaps, gap_total, gap_to_impute, xfilled
+            data, gaps, gap_total, gap_to_impute, xfilled 
             )
             if gap_to_impute is None:
                 return
@@ -519,7 +567,7 @@ def fillgaps(datafile):
             zip(xfilled, data)
         )  # write results into csv file in same format as input
 
-    ax[1].scatter(xfilled, data, fmt=".")
+    ax[1].scatter(xfilled, data, marker='.')
     ax[1].grid(True)
     ax[1].set_xlabel("MJD")
     ax[1].set_ylabel("Residuals (us)")
@@ -528,7 +576,7 @@ def fillgaps(datafile):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        raise ValueError("Need two arguments: data file and imputation method.")
+    if len(sys.argv) != 2:
+        raise ValueError("Need an input data file.")
 
-    fillgaps(sys.argv[1], sys.argv[2])
+    fillgaps(sys.argv[1])

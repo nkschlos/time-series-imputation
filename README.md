@@ -37,4 +37,4 @@ The algorithm is designed to preserve the noise characteristics of the data. To 
 On the top right are plots of the allan deviation as a function of averaging time of the original data (black) and recovered data (blue). On the bottom right are histograms. All noise types are unaffected by these metrics in masking and recovering through this code.
 
 # Authors
-Written by Noah Schlossberger and Chloe Champagne. Chloe wrote the code to process the data, find the gaps, and address them, while Noah wrote the code to match endpoints, including the filtering function to avoid matching to outliers and high frequency noise.
+Written by Chloe Champagne and Noah Schlossberger. Chloe wrote the code to process the data, find the gaps, and address them, while Noah wrote the code to match endpoints, including the filtering function to avoid matching to outliers and high frequency noise.

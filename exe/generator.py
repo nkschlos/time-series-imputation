@@ -10,7 +10,7 @@ from itertools import groupby
 from operator import itemgetter
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import PySimpleGUI as sg
-
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
 def filterfunction(data):
     """
@@ -422,12 +422,6 @@ def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
 class Toolbar(NavigationToolbar2Tk):
     def __init__(self, *args, **kwargs):
         super(Toolbar, self).__init__(*args, **kwargs)
-
-def draw_figure(canvas, figure):
-    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
-    figure_canvas_agg.draw()
-    figure_canvas_agg.get_tk_widget().pack(side="top", fill="both", expand=1)
-    return figure_canvas_agg
 # Define the window layout
 layout = [
     [sg.Text("Data Gap Imputation Tool"), sg.Button("Info")],
@@ -470,8 +464,6 @@ window = sg.Window(
 )
 window.Maximize()
 screen_width, screen_height = sg.Window.get_screen_size()
-print(screen_width)
-print(screen_height)
 # Add the plot to the window
 #draw_figure(window["-CANVAS-"].TKCanvas, fig)
 while True:
@@ -484,51 +476,55 @@ while True:
     if event == "Load Data":
         datafile = fileopenbox()
         if datafile:
-            fig_width = (screen_width*3/4)/100
-            fig_height = (screen_height/4)/100
-            fig = plt.figure(figsize=(fig_width,fig_height), dpi=100)
-            draw_figure_w_toolbar(window["-OriginalData-"].TKCanvas, fig, window["-Toolbar1-"].TKCanvas)
-            y = []
-            x = np.array([])
-            if datafile[-4:] == ".csv":  # if .csv file entered
-                with open(datafile, "r") as f:
-                    lines = f.readline()
-                    while lines:
-                        vals = lines.split(",")
-                        x = np.append(x, float(vals[0]))
-                        try:
-                            y.append(float(vals[1]))
-                        except:
-                            y.append(np.nan)
+            try:
+                y = []
+                x = np.array([])
+                if datafile[-4:] == ".csv":  # if .csv file entered
+                    with open(datafile, "r") as f:
                         lines = f.readline()
-            elif datafile[-4:] == ".txt":  # if .txt file entered
-                with open(datafile, "r") as f:
-                    lines = f.readline()
-                    while lines:
-                        vals = lines.strip().split()
-                        if vals != []:  # if not an empty line
+                        while lines:
+                            vals = lines.split(",")
                             x = np.append(x, float(vals[0]))
-                            y.append(float(vals[1]))
+                            try:
+                                y.append(float(vals[1]))
+                            except:
+                                y.append(np.nan)
+                            lines = f.readline()
+                elif datafile[-4:] == ".txt":  # if .txt file entered
+                    with open(datafile, "r") as f:
                         lines = f.readline()
+                        while lines:
+                            vals = lines.strip().split()
+                            if vals != []:  # if not an empty line
+                                x = np.append(x, float(vals[0]))
+                                y.append(float(vals[1]))
+                            lines = f.readline()
 
-            # create equispaced array for x-axis
-            if len(x) >= 2:
-                diff = x[1] - x[0]
-                for i in range(len(x) - 1):
-                    if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
-                        diff = x[i + 1] - x[i]
-                numintervals = int((x[-1] - x[0]) / diff)
-                xindices = np.array([0], dtype=int)
-                for i in range(1, len(x)):
-                    for j in range(1, numintervals + 1):
-                        if x[i] - (x[0] + diff * j) < diff:
-                            xindices = np.append(xindices, j)
-                            break
-            data = np.zeros(xindices.max() + 1) * np.nan
-            data[xindices] = y
-            fig.add_subplot(111).scatter(x,y, marker = '.')
-            ax = fig.axes[0]
-            plt.tight_layout()
+                # create equispaced array for x-axis
+                if len(x) >= 2:
+                    diff = x[1] - x[0]
+                    for i in range(len(x) - 1):
+                        if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
+                            diff = x[i + 1] - x[i]
+                    numintervals = int((x[-1] - x[0]) / diff)
+                    xindices = np.array([0], dtype=int)
+                    for i in range(1, len(x)):
+                        for j in range(1, numintervals + 1):
+                            if x[i] - (x[0] + diff * j) < diff:
+                                xindices = np.append(xindices, j)
+                                break
+                data = np.zeros(xindices.max() + 1) * np.nan
+                data[xindices] = y
+                #plot
+                fig_width = (screen_width*3/4)/100
+                fig_height = (screen_height/4)/100
+                fig = plt.figure(figsize=(fig_width,fig_height), dpi=100)
+                draw_figure_w_toolbar(window["-OriginalData-"].TKCanvas, fig, window["-Toolbar1-"].TKCanvas)
+                fig.add_subplot(111).scatter(x,y, marker = '.')
+                ax = fig.axes[0]
+                plt.tight_layout()
+            except ValueError:
+                msgbox("Cannot parse csv. Make sure it is formatted correctly and all headers are removed.")
     if event == "Fill Gaps":
         try:
             xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))

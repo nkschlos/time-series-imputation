@@ -1,15 +1,14 @@
-from easygui import fileopenbox, filesavebox
+from easygui import fileopenbox, filesavebox, msgbox
 import sys
 import numpy as np
 from copy import deepcopy
 from csv import writer
 import matplotlib.pyplot as plt
-plt.rcParams["figure.figsize"] = (10,4)
 from scipy.stats import median_abs_deviation
 from scipy.fft import fft, ifft
 from itertools import groupby
 from operator import itemgetter
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import PySimpleGUI as sg
 
 
@@ -65,7 +64,6 @@ def filter_all(data):
     else: #if no gaps
        filteredrun = filterfunction(data)
     return filteredrun
-
 def check_right(data, gaps, curgap, curgap_size, curgap_num, gap_total):
     """A method to check the right-hand side of the data to obtain the correct number of points to fill the gap.
 
@@ -111,8 +109,6 @@ def check_right(data, gaps, curgap, curgap_size, curgap_num, gap_total):
             return None, None
         else:
             return pts_to_reflect, "both"
-
-
 def check_both_sides(data, gaps, curgap, curgap_size, curgap_num, gap_total):
     """A method to check both sides of the data to obtain the correct number of points to fill the gap (half left, half right).
 
@@ -191,8 +187,6 @@ def check_both_sides(data, gaps, curgap, curgap_size, curgap_num, gap_total):
             return "Done"
         else:
             return None
-
-
 def check_left(data, gaps, curgap, curgap_size, curgap_num, gap_total):
     """A method to check the left-hand side of the data to obtain the correct number of points to fill the gap.
 
@@ -219,8 +213,6 @@ def check_left(data, gaps, curgap, curgap_size, curgap_num, gap_total):
             data, gaps, curgap, curgap_size, curgap_num, gap_total
         )
         return pts_to_reflect
-
-
 def fill(data, gaps, gap_total, gap_num, xcoords, reverse = False):
     """A method to fill the gap_num-th gap in the data by reflecting and inverting data on one/both sides of the gap.
 
@@ -328,8 +320,6 @@ def fill(data, gaps, gap_total, gap_num, xcoords, reverse = False):
                 gaps[k] = gaps.pop(k + 1)
         gap_total = gap_total - 1
     return gap_num, gap_total
-
-
 def check_boundaries(curgap, curgap_num, gaps, gap_total, data):
     """Look for outliers at the current gap's boundaries.
 
@@ -412,14 +402,26 @@ def check_boundaries(curgap, curgap_num, gaps, gap_total, data):
     start = (start_ext, start_int)
     end = (end_int, end_ext)
     return start, end
+########################################################
 
 
+def draw_figure_w_toolbar(canvas, fig, canvas_toolbar):
+    if canvas.children:
+        for child in canvas.winfo_children():
+            child.destroy()
+    if canvas_toolbar.children:
+        for child in canvas_toolbar.winfo_children():
+            child.destroy()
+    figure_canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
+    figure_canvas_agg.draw()
+    toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
+    toolbar.update()
+    figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
 
 
-t = np.arange(0, 3, .01)
-#fig.add_subplot(111).plot(t, 2 * np.sin(2 * np.pi * t))
-
-#matplotlib.use("TkAgg")
+class Toolbar(NavigationToolbar2Tk):
+    def __init__(self, *args, **kwargs):
+        super(Toolbar, self).__init__(*args, **kwargs)
 
 def draw_figure(canvas, figure):
     figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
@@ -429,8 +431,28 @@ def draw_figure(canvas, figure):
 # Define the window layout
 layout = [
     [sg.Text("Data Gap Imputation Tool")],
-    [sg.Canvas(key="-OriginalData-")],
-    [sg.Canvas(key="-FilledData-")],
+    [sg.Column(
+        layout=[
+            [sg.Canvas(key="-Toolbar1-")],
+            [sg.Canvas(key='-OriginalData-',
+                       # it's important that you set this size
+                       size=(200 * 2, 200)
+                       )]
+        ],
+        background_color='#DAE0E6',
+        pad=(0, 0)
+    )],
+    [sg.Column(
+        layout=[
+            [sg.Canvas(key="-Toolbar2-")],
+            [sg.Canvas(key='-FilledData-',
+                       # it's important that you set this size
+                       size=(200 * 2, 200)
+                       )]
+        ],
+        background_color='#DAE0E6',
+        pad=(0, 0)
+    )],
     [sg.Button("Load Data")],
     [sg.Button("Fill Gaps")],
     [sg.Button("Save")],
@@ -448,6 +470,9 @@ window = sg.Window(
     font="Helvetica 18",
 )
 window.Maximize()
+screen_width, screen_height = sg.Window.get_screen_size()
+print(screen_width)
+print(screen_height)
 # Add the plot to the window
 #draw_figure(window["-CANVAS-"].TKCanvas, fig)
 while True:
@@ -456,150 +481,158 @@ while True:
         break
     if event == "Load Data":
         datafile = fileopenbox()
-
-        fig = plt.figure(figsize=(10, 4), dpi=100)
-        draw_figure(window["-OriginalData-"].TKCanvas, fig)
-        y = []
-        x = np.array([])
-        if datafile[-4:] == ".csv":  # if .csv file entered
-            with open(datafile, "r") as f:
-                lines = f.readline()
-                while lines:
-                    vals = lines.split(",")
-                    x = np.append(x, float(vals[0]))
-                    try:
-                        y.append(float(vals[1]))
-                    except:
-                        y.append(np.nan)
+        if datafile:
+            fig_width = (screen_width*3/4)/100
+            fig_height = (screen_height/4)/100
+            fig = plt.figure(figsize=(fig_width,fig_height), dpi=100)
+            draw_figure_w_toolbar(window["-OriginalData-"].TKCanvas, fig, window["-Toolbar1-"].TKCanvas)
+            y = []
+            x = np.array([])
+            if datafile[-4:] == ".csv":  # if .csv file entered
+                with open(datafile, "r") as f:
                     lines = f.readline()
-        elif datafile[-4:] == ".txt":  # if .txt file entered
-            with open(datafile, "r") as f:
-                lines = f.readline()
-                while lines:
-                    vals = lines.strip().split()
-                    if vals != []:  # if not an empty line
+                    while lines:
+                        vals = lines.split(",")
                         x = np.append(x, float(vals[0]))
-                        y.append(float(vals[1]))
+                        try:
+                            y.append(float(vals[1]))
+                        except:
+                            y.append(np.nan)
+                        lines = f.readline()
+            elif datafile[-4:] == ".txt":  # if .txt file entered
+                with open(datafile, "r") as f:
                     lines = f.readline()
+                    while lines:
+                        vals = lines.strip().split()
+                        if vals != []:  # if not an empty line
+                            x = np.append(x, float(vals[0]))
+                            y.append(float(vals[1]))
+                        lines = f.readline()
 
-        # create equispaced array for x-axis
-        if len(x) >= 2:
-            diff = x[1] - x[0]
-            for i in range(len(x) - 1):
-                if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
-                    diff = x[i + 1] - x[i]
-            numintervals = int((x[-1] - x[0]) / diff)
-            xindices = np.array([0], dtype=int)
-            for i in range(1, len(x)):
-                for j in range(1, numintervals + 1):
-                    if x[i] - (x[0] + diff * j) < diff:
-                        xindices = np.append(xindices, j)
-                        break
-        data = np.zeros(xindices.max() + 1) * np.nan
-        data[xindices] = y
-        ax = fig.add_subplot(111).scatter(x,y, marker = '.')
-        #ax.set_title("test")
+            # create equispaced array for x-axis
+            if len(x) >= 2:
+                diff = x[1] - x[0]
+                for i in range(len(x) - 1):
+                    if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
+                        diff = x[i + 1] - x[i]
+                numintervals = int((x[-1] - x[0]) / diff)
+                xindices = np.array([0], dtype=int)
+                for i in range(1, len(x)):
+                    for j in range(1, numintervals + 1):
+                        if x[i] - (x[0] + diff * j) < diff:
+                            xindices = np.append(xindices, j)
+                            break
+            data = np.zeros(xindices.max() + 1) * np.nan
+            data[xindices] = y
+            ax = fig.add_subplot(111).scatter(x,y, marker = '.')
+            #ax.set_title("test")
     if event == "Fill Gaps":
-        fig2 = plt.figure(figsize=(10, 4), dpi=100)
-        draw_figure(window["-FilledData-"].TKCanvas, fig2)
-        xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
-        # find indeces of data gaps and largest continuous run of data
-        gap_indeces = np.where(np.isnan(data))[0]
-        # check if the above numpy.ndarray empty - print message and exit
-        if gap_indeces.size == 0:
-            print("The data has no gaps. Exiting...")
-        else:
-            gap_total = 1
-            start_gap_inx = gap_indeces[0]
-            maxdiff = start_gap_inx  # run before first gap
-            gap_to_impute = 1
-            # initial value
-            gaps = {
-                1: (start_gap_inx, start_gap_inx)
-            }  # {gap #: (starting index, ending index)}
-            for i in range(len(gap_indeces) - 1):
-                diff = gap_indeces[i + 1] - gap_indeces[i]
-                if diff > maxdiff:
-                    maxdiff = diff
-                    gap_to_impute = (
-                        gap_total + 1
-                    )  # gap to the right of the largest run will be the first to impute
-                if diff > 1:  # new gap reached
-                    gaps[gap_total] = (start_gap_inx, gap_indeces[i])
-                    start_gap_inx = gap_indeces[i + 1]
-                    gap_total = gap_total + 1
-                    # check if new gap also at last index (1-index gap)
-                    if i == len(gap_indeces) - 2:
-                        gaps[gap_total] = (start_gap_inx, start_gap_inx)
-                if i == len(gap_indeces) - 2:  # only one jump in data set
-                    gaps[gap_total] = (start_gap_inx, gap_indeces[i + 1])
+        try:
+            xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
+            # find indeces of data gaps and largest continuous run of data
+            gap_indeces = np.where(np.isnan(data))[0]
+            # check if the above numpy.ndarray empty - print message and exit
+            if gap_indeces.size == 0:
+                print("The data has no gaps. Exiting...")
+            else:
+                gap_total = 1
+                start_gap_inx = gap_indeces[0]
+                maxdiff = start_gap_inx  # run before first gap
+                gap_to_impute = 1
+                # initial value
+                gaps = {
+                    1: (start_gap_inx, start_gap_inx)
+                }  # {gap #: (starting index, ending index)}
+                for i in range(len(gap_indeces) - 1):
+                    diff = gap_indeces[i + 1] - gap_indeces[i]
+                    if diff > maxdiff:
+                        maxdiff = diff
+                        gap_to_impute = (
+                            gap_total + 1
+                        )  # gap to the right of the largest run will be the first to impute
+                    if diff > 1:  # new gap reached
+                        gaps[gap_total] = (start_gap_inx, gap_indeces[i])
+                        start_gap_inx = gap_indeces[i + 1]
+                        gap_total = gap_total + 1
+                        # check if new gap also at last index (1-index gap)
+                        if i == len(gap_indeces) - 2:
+                            gaps[gap_total] = (start_gap_inx, start_gap_inx)
+                    if i == len(gap_indeces) - 2:  # only one jump in data set
+                        gaps[gap_total] = (start_gap_inx, gap_indeces[i + 1])
 
-            # impute single-point gaps
-            i = 1
-            while i <= gap_total:
-                # for i in range(1, gap_total):
-                if gaps[i][0] == gaps[i][1]:
-                    # if data on both sides of gap, take average of previous and following data point
-                    if gaps[i][0] != 0 and gaps[i][0] != len(data) - 1:
-                        data[gaps[i][0]] = (data[gaps[i][0] - 1] + data[gaps[i][0] + 1]) / 2
-                    elif gaps[i][0] == 0:
-                        data[0] = data[1]
+                # impute single-point gaps
+                i = 1
+                while i <= gap_total:
+                    # for i in range(1, gap_total):
+                    if gaps[i][0] == gaps[i][1]:
+                        # if data on both sides of gap, take average of previous and following data point
+                        if gaps[i][0] != 0 and gaps[i][0] != len(data) - 1:
+                            data[gaps[i][0]] = (data[gaps[i][0] - 1] + data[gaps[i][0] + 1]) / 2
+                        elif gaps[i][0] == 0:
+                            data[0] = data[1]
+                        else:
+                            data[-1] = data[-2]
+                        for k in range(i, gap_total):
+                            gaps[k] = gaps.pop(k + 1)
+                        gap_total = gap_total - 1
                     else:
-                        data[-1] = data[-2]
-                    for k in range(i, gap_total):
-                        gaps[k] = gaps.pop(k + 1)
-                    gap_total = gap_total - 1
-                else:
-                    i = i + 1
+                        i = i + 1
 
-            # check if first gap_to_impute now beyond the range of total gaps
-            if gap_to_impute > gap_total:
-                gap_to_impute = 1  # set to first gap - if only 1 gap, automatic choice, otherwise starting point
-                if gap_total > 1:
-                    maxdiff = gaps[1][0]  # run before first gap
-                    for i in range(1, gap_total):
+                # check if first gap_to_impute now beyond the range of total gaps
+                if gap_to_impute > gap_total:
+                    gap_to_impute = 1  # set to first gap - if only 1 gap, automatic choice, otherwise starting point
+                    if gap_total > 1:
+                        maxdiff = gaps[1][0]  # run before first gap
+                        for i in range(1, gap_total):
+                            diff = gaps[i + 1][0] - gaps[i][1]
+                            if diff > maxdiff:
+                                maxdiff = diff
+                                gap_to_impute = i + 1
+
+                # impute gaps to the right of this run, then reverse and do left
+                # i. Type 2 - reflect+invert
+
+                while gap_total != 0:
+                    while gap_to_impute <= gap_total and gap_to_impute != 0:
+                        gap_to_impute, gap_total = fill(
+                        data, gaps, gap_total, gap_to_impute, xfilled
+                        )
+                        if gap_to_impute is None:
+                            break
+
+                    # spacially reverse dataset, continue until beginning reached
+                    for i in range(gap_to_impute, 0, -1):
+                        gap_to_impute, gap_total = fill(
+                            data, gaps, gap_total, i, xfilled, reverse=True
+                        )
+                        if gap_to_impute is None:
+                            break
+
+                    # reset gap_to_impute if still gaps left
+                    maxdiff = 0
+                    for i in range(1, len(gaps)):
                         diff = gaps[i + 1][0] - gaps[i][1]
                         if diff > maxdiff:
-                            maxdiff = diff
-                            gap_to_impute = i + 1
-
-            # impute gaps to the right of this run, then reverse and do left
-            # i. Type 2 - reflect+invert
-
-            while gap_total != 0:
-                while gap_to_impute <= gap_total and gap_to_impute != 0:
-                    gap_to_impute, gap_total = fill(
-                    data, gaps, gap_total, gap_to_impute, xfilled
-                    )
-                    if gap_to_impute is None:
-                        break
-
-                # spacially reverse dataset, continue until beginning reached
-                for i in range(gap_to_impute, 0, -1):
-                    gap_to_impute, gap_total = fill(
-                        data, gaps, gap_total, i, xfilled, reverse=True
-                    )
-                    if gap_to_impute is None:
-                        break
-
-                # reset gap_to_impute if still gaps left
-                maxdiff = 0
-                for i in range(1, len(gaps)):
-                    diff = gaps[i + 1][0] - gaps[i][1]
-                    if diff > maxdiff:
-                        gap_to_impute = (
-                            i + 1
-                        )  # gap to the right of the largest continuous run
-
-        fig2.add_subplot(111).scatter(xfilled,data, marker = '.')
+                            gap_to_impute = (
+                                i + 1
+                            )  # gap to the right of the largest continuous run
+            fig2 = plt.figure(figsize=(fig_width,fig_height), dpi=100)
+            draw_figure_w_toolbar(window["-FilledData-"].TKCanvas, fig2, window["-Toolbar2-"].TKCanvas)
+            fig2.add_subplot(111).scatter(xfilled,data, marker = '.')
+        except NameError:
+            msgbox("You must import data first")
     if event == "Save":
-        savefile = filesavebox()
-        if savefile[-4:] != ".csv":
-            savefile = savefile + ".csv"
-        with open(savefile, "w",  newline='') as f:
-            csvwriter = writer(f)
-            csvwriter.writerows(
-                zip(xfilled, data)
-            )  # write results into csv file in same format as input
+        try:
+            rows = zip(xfilled, data)
+            savefile = filesavebox()
+            if savefile[-4:] != ".csv":
+                savefile = savefile + ".csv"
+            with open(savefile, "w",  newline='') as f:
+                csvwriter = writer(f)
+                csvwriter.writerows(
+                    rows
+                )  # write results into csv file in same format as input
+        except NameError:
+            msgbox("You must fill the data first")
 
 window.close()

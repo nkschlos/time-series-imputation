@@ -430,7 +430,7 @@ def draw_figure(canvas, figure):
     return figure_canvas_agg
 # Define the window layout
 layout = [
-    [sg.Text("Data Gap Imputation Tool")],
+    [sg.Text("Data Gap Imputation Tool"), sg.Button("Info")],
     [sg.Column(
         layout=[
             [sg.Canvas(key="-Toolbar1-")],
@@ -455,8 +455,7 @@ layout = [
     )],
     [sg.Button("Load Data")],
     [sg.Button("Fill Gaps")],
-    [sg.Button("Save")],
-    [sg.Button("Close")],
+    [sg.Button("Save"), sg.Button("Close")],
 ]
 
 # Create the form and show it without the plot
@@ -479,6 +478,9 @@ while True:
     event, values = window.read()
     if event == "Close" or event == sg.WIN_CLOSED:
         break
+    if event == "Info":
+        info = "Please load a comma delimted csv with the first column being the time and the second column being the data."
+        msgbox(info)
     if event == "Load Data":
         datafile = fileopenbox()
         if datafile:
@@ -524,8 +526,9 @@ while True:
                             break
             data = np.zeros(xindices.max() + 1) * np.nan
             data[xindices] = y
-            ax = fig.add_subplot(111).scatter(x,y, marker = '.')
-            #ax.set_title("test")
+            fig.add_subplot(111).scatter(x,y, marker = '.')
+            ax = fig.axes[0]
+            plt.tight_layout()
     if event == "Fill Gaps":
         try:
             xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
@@ -619,6 +622,8 @@ while True:
             fig2 = plt.figure(figsize=(fig_width,fig_height), dpi=100)
             draw_figure_w_toolbar(window["-FilledData-"].TKCanvas, fig2, window["-Toolbar2-"].TKCanvas)
             fig2.add_subplot(111).scatter(xfilled,data, marker = '.')
+            ax2 = fig2.axes[0]
+            plt.tight_layout()
         except NameError:
             msgbox("You must import data first")
     if event == "Save":

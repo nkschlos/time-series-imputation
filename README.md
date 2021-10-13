@@ -1,6 +1,6 @@
 # Time-series-imputation
 A script to fill in missing time series points in a way that preserves the characteristics of the noise in the dataset
-![image](https://user-images.githubusercontent.com/39776793/132546232-6f5c83db-d535-44ee-8dcf-b70481f8d5b8.png)
+![image](https://user-images.githubusercontent.com/39776793/137064058-4579af5c-3132-4aa1-98b6-ba4d550693dd.png)
 
 # .exe file on its way. 
 In the meantime, for a user friendly program with a GUI, run  exe/generator.py in python

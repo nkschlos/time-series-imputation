@@ -561,7 +561,7 @@ def fillgaps(datafile):
                     i + 1
                 )  # gap to the right of the largest continuous run
 
-    with open("result.csv", "w") as f:
+    with open("result.csv", "w",  newline='') as f:
         csvwriter = csv.writer(f)
         csvwriter.writerows(
             zip(xfilled, data)

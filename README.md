@@ -2,8 +2,8 @@
 A script to fill in missing time series points in a way that preserves the characteristics of the noise in the dataset
 ![image](https://user-images.githubusercontent.com/39776793/137064058-4579af5c-3132-4aa1-98b6-ba4d550693dd.png)
 
-# .exe file on its way. 
-In the meantime, for a user friendly program with a GUI, run  exe/generator.py in python
+# .exe file now available!
+GUI version of the tool now available in exe format to run without installing python.
 
 # How to use the raw python script
 

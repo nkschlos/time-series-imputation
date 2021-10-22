@@ -1,6 +1,7 @@
 """
-A script to fill data gaps in a way that retains the noise characteristic of the live data set and preserves AVAR curves. An implementation of the algorithm described in:
-Howe and Schlossberger, "Strategy for Characterizing Frequency Stability Measurements having Multiple Dead Times"
+A script to fill data gaps in a way that retains the noise characteristic of the live data set and preserves AVAR curves. 
+An implementation of the algorithm described in:
+Howe and Schlossberger, "Characterizing Frequency Stability Measurements having Multiple Data Gaps"
 """
 
 import sys
@@ -496,94 +497,5 @@ def fill(data, gaps, gap_total, gap_num, xcoords, reverse = False):
     return gap_num, gap_total
 
 
-def check_boundaries(curgap, curgap_num, gaps, gap_total, data):
-    """Look for outliers at the current gap's boundaries.
-
-    Parameters:
-            curgap - tuple, start and end indices of the current gap
-            curgap_num - int, index of current gap
-            gaps - dict, stores all gaps in dataset
-            gap_total - int, total number of gaps
-            data - np.ndarray, the data being imputed
-    """
-    start_int = None
-    start_ext = None
-    end_int = None
-    end_ext = None
-    if (curgap_num != 1 and curgap[0] - gaps[curgap_num - 1][1] < 11) or curgap[0] < 11:
-        start_ext = curgap[0] - 2
-        start_int = curgap[0] - 1
-    else:
-        # find outliers using MAD (median average deviation) with 1st differences
-        data_diff = []
-        for i in range(curgap[0] - 11, curgap[0] - 1):
-            data_diff.append(data[i + 1] - data[i])
-        mad = median_abs_deviation(data_diff)
-
-        start_ext = curgap[0] - 2
-        start_int = curgap[0] - 1
-
-        # check that MAD isn't zero - if so, just take 2 closest pts to gap
-        if mad > 2:
-            cutoff = 5 * mad
-            outliers = [
-                num > cutoff for num in data_diff
-            ]  # positive difference indicates outlier at that index
-
-            for i in range(0, 10):
-                # outlier array in reverse order -> incrementing up outlier array decrements data index
-                if outliers[i] or outliers[i + 1]:
-                    start_ext -= 1
-                    start_int -= 1
-                else:
-                    break  # if no outliers, take indices and break for loop
-
-    if (curgap_num != gap_total and gaps[curgap_num + 1][0] - curgap[1] < 11) or len(
-        data
-    ) - curgap[1] < 11:
-        end_int = curgap[1] + 1
-        end_ext = curgap[1] + 2
-    else:
-        # find outliers using MAD (median average deviation) with 1st differences
-        data_diff = []
-        for i in range(curgap[1] + 1, curgap[1] + 11):
-            data_diff.append(data[i + 1] - data[i])
-        mad = median_abs_deviation(data_diff)
-
-        end_int = curgap[1] + 1
-        end_ext = curgap[1] + 2
-
-        # check that MAD isn't small - causes non-outliers to register as outliers
-        if mad > 2:
-            cutoff = 5 * mad
-            outliers = [
-                num > cutoff for num in data_diff
-            ]  # positive difference indicates outlier at that index
-
-            for i in range(0, 10):
-                # outlier array in reverse order -> incrementing up outlier array decrements data index
-                if outliers[i] or outliers[i + 1]:
-                    end_int += 1
-                    end_ext += 1
-
-    if start_int < 0:
-        start_int = None
-    if start_ext < 0:
-        start_ext = None
-    if end_int > len(data) - 1:
-        end_int = None
-    if end_ext > len(data) - 1:
-        end_ext = None
-
-    start = (start_ext, start_int)
-    end = (end_int, end_ext)
-    return start, end
-
-
-
-
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise ValueError("Need an input data file.")
-
-    fillgaps(sys.argv[1])
+    fillgaps(sys.argv[1], sys.argv[2])

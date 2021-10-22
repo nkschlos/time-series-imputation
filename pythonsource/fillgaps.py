@@ -13,6 +13,170 @@ from scipy.fft import fft, ifft
 from itertools import groupby
 from operator import itemgetter
 
+def fillgaps(datafile, savefile = "NaN", plotresults = 1):
+    """A method to fill gaps in data and preserve data noise characteristics.
+
+    Parameters:
+    datafile: (string) a file path ending in ".csv" to a comma delimited csv file with two columns formatted as 
+              <time,equispaced>, <data>
+
+    savefile: (string) a file path ending in ".csv" to which to save the imputed results
+
+    """
+
+    y = []
+    x = np.array([])
+    if datafile[-4:] == ".csv":  # if .csv file entered
+        with open(datafile, "r") as f:
+            lines = f.readline()
+            while lines:
+                vals = lines.split(",")
+                x = np.append(x, float(vals[0]))
+                try:
+                    y.append(float(vals[1]))
+                except:
+                    y.append(np.nan)
+                lines = f.readline()
+    elif datafile[-4:] == ".txt":  # if .txt file entered
+        with open(datafile, "r") as f:
+            lines = f.readline()
+            while lines:
+                vals = lines.strip().split()
+                if vals != []:  # if not an empty line
+                    x = np.append(x, float(vals[0]))
+                    y.append(float(vals[1]))
+                lines = f.readline()
+
+    # create equispaced array for x-axis
+    if len(x) >= 2:
+        diff = x[1] - x[0]
+        for i in range(len(x) - 1):
+            if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
+                diff = x[i + 1] - x[i]
+        numintervals = int((x[-1] - x[0]) / diff)
+        xindices = np.array([0], dtype=int)
+        for i in range(1, len(x)):
+            for j in range(1, numintervals + 1):
+                if x[i] - (x[0] + diff * j) < diff:
+                    xindices = np.append(xindices, j)
+                    break
+    data = np.zeros(xindices.max() + 1) * np.nan
+    data[xindices] = y
+
+    xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
+
+    fig, ax = plt.subplots(2, figsize=(12, 8))
+    ax[0].set_title("Original Data")
+    ax[0].scatter(x, y, marker = '.')
+    #ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
+    ax[0].grid(True)
+    #ax[0].set_xlabel("MJD")
+    ax[0].set_ylabel("Residuals (us)")
+    #ax[0].legend(["Data","Filtered Data used for Endpoint Matching"])
+   
+
+    # find indeces of data gaps and largest continuous run of data
+    gap_indeces = np.where(np.isnan(data))[0]
+    # check if the above numpy.ndarray empty - print message and exit
+    if gap_indeces.size == 0:
+        print("The data has no gaps. Exiting...")
+        return
+
+    gap_total = 1
+    start_gap_inx = gap_indeces[0]
+    maxdiff = start_gap_inx  # run before first gap
+    gap_to_impute = 1
+    # initial value
+    gaps = {
+        1: (start_gap_inx, start_gap_inx)
+    }  # {gap #: (starting index, ending index)}
+    for i in range(len(gap_indeces) - 1):
+        diff = gap_indeces[i + 1] - gap_indeces[i]
+        if diff > maxdiff:
+            maxdiff = diff
+            gap_to_impute = (
+                gap_total + 1
+            )  # gap to the right of the largest run will be the first to impute
+        if diff > 1:  # new gap reached
+            gaps[gap_total] = (start_gap_inx, gap_indeces[i])
+            start_gap_inx = gap_indeces[i + 1]
+            gap_total = gap_total + 1
+            # check if new gap also at last index (1-index gap)
+            if i == len(gap_indeces) - 2:
+                gaps[gap_total] = (start_gap_inx, start_gap_inx)
+        if i == len(gap_indeces) - 2:  # only one jump in data set
+            gaps[gap_total] = (start_gap_inx, gap_indeces[i + 1])
+
+    # impute single-point gaps
+    i = 1
+    while i <= gap_total:
+        # for i in range(1, gap_total):
+        if gaps[i][0] == gaps[i][1]:
+            # if data on both sides of gap, take average of previous and following data point
+            if gaps[i][0] != 0 and gaps[i][0] != len(data) - 1:
+                data[gaps[i][0]] = (data[gaps[i][0] - 1] + data[gaps[i][0] + 1]) / 2
+            elif gaps[i][0] == 0:
+                data[0] = data[1]
+            else:
+                data[-1] = data[-2]
+            for k in range(i, gap_total):
+                gaps[k] = gaps.pop(k + 1)
+            gap_total = gap_total - 1
+        else:
+            i = i + 1
+
+    # check if first gap_to_impute now beyond the range of total gaps
+    if gap_to_impute > gap_total:
+        gap_to_impute = 1  # set to first gap - if only 1 gap, automatic choice, otherwise starting point
+        if gap_total > 1:
+            maxdiff = gaps[1][0]  # run before first gap
+            for i in range(1, gap_total):
+                diff = gaps[i + 1][0] - gaps[i][1]
+                if diff > maxdiff:
+                    maxdiff = diff
+                    gap_to_impute = i + 1
+
+    # impute gaps to the right of this run, then reverse and do left 
+    # i. Type 2 - reflect+invert
+
+    while gap_total != 0:
+        while gap_to_impute <= gap_total and gap_to_impute != 0:
+            gap_to_impute, gap_total = fill(
+            data, gaps, gap_total, gap_to_impute, xfilled 
+            )
+            if gap_to_impute is None:
+                return
+
+        # spacially reverse dataset, continue until beginning reached
+        for i in range(gap_to_impute, 0, -1):
+            gap_to_impute, gap_total = fill(
+                data, gaps, gap_total, i, xfilled, reverse=True
+            )
+            if gap_to_impute is None:
+                return
+
+        # reset gap_to_impute if still gaps left
+        maxdiff = 0
+        for i in range(1, len(gaps)):
+            diff = gaps[i + 1][0] - gaps[i][1]
+            if diff > maxdiff:
+                gap_to_impute = (
+                    i + 1
+                )  # gap to the right of the largest continuous run
+    if savefile != "NaN":
+        with open(savefile, "w",  newline='') as f:
+            csvwriter = csv.writer(f)
+            csvwriter.writerows(zip(xfilled, data))  # write results into csv file in same format as input
+    if plotresults:
+        ax[1].scatter(xfilled, data, marker='.')
+        ax[1].grid(True)
+        ax[1].set_xlabel("MJD")
+        ax[1].set_ylabel("Residuals (us)")
+        ax[1].set_title("Recovered Data")
+        plt.show()  # displays graphs of data before/after imputation
+
+
+
 def filterfunction(data):
     """
     Takes a continuous block of data and multiplies it in the frequency domain by exp(-2^3 f/T)
@@ -414,165 +578,6 @@ def check_boundaries(curgap, curgap_num, gaps, gap_total, data):
     return start, end
 
 
-def fillgaps(datafile):
-    """A method to fill gaps in data and preserve data noise characteristics.
-
-    Parameters:
-    datafile: a csv file formatted as follows: MJD, residual (us)
-    """
-
-    y = []
-    x = np.array([])
-    if datafile[-4:] == ".csv":  # if .csv file entered
-        with open(datafile, "r") as f:
-            lines = f.readline()
-            while lines:
-                vals = lines.split(",")
-                x = np.append(x, float(vals[0]))
-                try:
-                    y.append(float(vals[1]))
-                except:
-                    y.append(np.nan)
-                lines = f.readline()
-    elif datafile[-4:] == ".txt":  # if .txt file entered
-        with open(datafile, "r") as f:
-            lines = f.readline()
-            while lines:
-                vals = lines.strip().split()
-                if vals != []:  # if not an empty line
-                    x = np.append(x, float(vals[0]))
-                    y.append(float(vals[1]))
-                lines = f.readline()
-
-    # create equispaced array for x-axis
-    if len(x) >= 2:
-        diff = x[1] - x[0]
-        for i in range(len(x) - 1):
-            if x[i + 1] - x[i] < diff and x[i + 1] - x[i] > 0:
-                diff = x[i + 1] - x[i]
-        numintervals = int((x[-1] - x[0]) / diff)
-        xindices = np.array([0], dtype=int)
-        for i in range(1, len(x)):
-            for j in range(1, numintervals + 1):
-                if x[i] - (x[0] + diff * j) < diff:
-                    xindices = np.append(xindices, j)
-                    break
-    data = np.zeros(xindices.max() + 1) * np.nan
-    data[xindices] = y
-
-    xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
-
-    fig, ax = plt.subplots(2, figsize=(12, 8))
-    ax[0].set_title("Original Data")
-    ax[0].scatter(x, y, marker = '.')
-    #ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
-    ax[0].grid(True)
-    #ax[0].set_xlabel("MJD")
-    ax[0].set_ylabel("Residuals (us)")
-    #ax[0].legend(["Data","Filtered Data used for Endpoint Matching"])
-   
-
-    # find indeces of data gaps and largest continuous run of data
-    gap_indeces = np.where(np.isnan(data))[0]
-    # check if the above numpy.ndarray empty - print message and exit
-    if gap_indeces.size == 0:
-        print("The data has no gaps. Exiting...")
-        return
-
-    gap_total = 1
-    start_gap_inx = gap_indeces[0]
-    maxdiff = start_gap_inx  # run before first gap
-    gap_to_impute = 1
-    # initial value
-    gaps = {
-        1: (start_gap_inx, start_gap_inx)
-    }  # {gap #: (starting index, ending index)}
-    for i in range(len(gap_indeces) - 1):
-        diff = gap_indeces[i + 1] - gap_indeces[i]
-        if diff > maxdiff:
-            maxdiff = diff
-            gap_to_impute = (
-                gap_total + 1
-            )  # gap to the right of the largest run will be the first to impute
-        if diff > 1:  # new gap reached
-            gaps[gap_total] = (start_gap_inx, gap_indeces[i])
-            start_gap_inx = gap_indeces[i + 1]
-            gap_total = gap_total + 1
-            # check if new gap also at last index (1-index gap)
-            if i == len(gap_indeces) - 2:
-                gaps[gap_total] = (start_gap_inx, start_gap_inx)
-        if i == len(gap_indeces) - 2:  # only one jump in data set
-            gaps[gap_total] = (start_gap_inx, gap_indeces[i + 1])
-
-    # impute single-point gaps
-    i = 1
-    while i <= gap_total:
-        # for i in range(1, gap_total):
-        if gaps[i][0] == gaps[i][1]:
-            # if data on both sides of gap, take average of previous and following data point
-            if gaps[i][0] != 0 and gaps[i][0] != len(data) - 1:
-                data[gaps[i][0]] = (data[gaps[i][0] - 1] + data[gaps[i][0] + 1]) / 2
-            elif gaps[i][0] == 0:
-                data[0] = data[1]
-            else:
-                data[-1] = data[-2]
-            for k in range(i, gap_total):
-                gaps[k] = gaps.pop(k + 1)
-            gap_total = gap_total - 1
-        else:
-            i = i + 1
-
-    # check if first gap_to_impute now beyond the range of total gaps
-    if gap_to_impute > gap_total:
-        gap_to_impute = 1  # set to first gap - if only 1 gap, automatic choice, otherwise starting point
-        if gap_total > 1:
-            maxdiff = gaps[1][0]  # run before first gap
-            for i in range(1, gap_total):
-                diff = gaps[i + 1][0] - gaps[i][1]
-                if diff > maxdiff:
-                    maxdiff = diff
-                    gap_to_impute = i + 1
-
-    # impute gaps to the right of this run, then reverse and do left 
-    # i. Type 2 - reflect+invert
-
-    while gap_total != 0:
-        while gap_to_impute <= gap_total and gap_to_impute != 0:
-            gap_to_impute, gap_total = fill(
-            data, gaps, gap_total, gap_to_impute, xfilled 
-            )
-            if gap_to_impute is None:
-                return
-
-        # spacially reverse dataset, continue until beginning reached
-        for i in range(gap_to_impute, 0, -1):
-            gap_to_impute, gap_total = fill(
-                data, gaps, gap_total, i, xfilled, reverse=True
-            )
-            if gap_to_impute is None:
-                return
-
-        # reset gap_to_impute if still gaps left
-        maxdiff = 0
-        for i in range(1, len(gaps)):
-            diff = gaps[i + 1][0] - gaps[i][1]
-            if diff > maxdiff:
-                gap_to_impute = (
-                    i + 1
-                )  # gap to the right of the largest continuous run
-
-    with open("result.csv", "w",  newline='') as f:
-        csvwriter = csv.writer(f)
-        csvwriter.writerows(
-            zip(xfilled, data)
-        )  # write results into csv file in same format as input
-
-    ax[1].scatter(xfilled, data, marker='.')
-    ax[1].grid(True)
-    ax[1].set_xlabel("MJD")
-    ax[1].set_ylabel("Residuals (us)")
-    ax[1].set_title("Recovered Data")
-    plt.show()  # displays graphs of data before/after imputation
 
 
 if __name__ == "__main__":

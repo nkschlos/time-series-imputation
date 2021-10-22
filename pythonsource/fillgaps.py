@@ -13,7 +13,7 @@ from scipy.fft import fft, ifft
 from itertools import groupby
 from operator import itemgetter
 
-def fillgaps(datafile, savefile = "NaN", plotresults = 1):
+def fillgaps(datafile, savefile = "NaN", plotresults = True):
     """A method to fill gaps in data and preserve data noise characteristics.
 
     Parameters:
@@ -21,6 +21,8 @@ def fillgaps(datafile, savefile = "NaN", plotresults = 1):
               <time,equispaced>, <data>
 
     savefile: (string) a file path ending in ".csv" to which to save the imputed results
+    
+    plotresults: (Bool) whether or not to make a plot of the input data and filled data
 
     """
 
@@ -64,15 +66,15 @@ def fillgaps(datafile, savefile = "NaN", plotresults = 1):
     data[xindices] = y
 
     xfilled = np.linspace(x[0], x[-1], num=int(numintervals + 1))
-
-    fig, ax = plt.subplots(2, figsize=(12, 8))
-    ax[0].set_title("Original Data")
-    ax[0].scatter(x, y, marker = '.')
-    #ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
-    ax[0].grid(True)
-    #ax[0].set_xlabel("MJD")
-    ax[0].set_ylabel("Residuals (us)")
-    #ax[0].legend(["Data","Filtered Data used for Endpoint Matching"])
+    if plotresults:
+        fig, ax = plt.subplots(2, figsize=(12, 8))
+        ax[0].set_title("Original Data")
+        ax[0].scatter(x, y, marker = '.')
+        #ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
+        ax[0].grid(True)
+        #ax[0].set_xlabel("MJD")
+        ax[0].set_ylabel("Residuals (us)")
+        #ax[0].legend(["Data","Filtered Data used for Endpoint Matching"])
    
 
     # find indeces of data gaps and largest continuous run of data

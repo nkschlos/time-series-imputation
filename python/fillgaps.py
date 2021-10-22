@@ -9,7 +9,6 @@ import numpy as np
 import copy
 import csv
 import matplotlib.pyplot as plt
-from scipy.stats import median_abs_deviation
 from scipy.fft import fft, ifft
 from itertools import groupby
 from operator import itemgetter

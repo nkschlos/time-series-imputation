@@ -1,7 +1,9 @@
+RUNNING:
 To run, you can type into a terminal:
 
-
+>>
 python fillgaps.py("filename.csv","results.csv")
+>>
 
 where 
 "filename.csv" is the file containing the data with missing points formatted as comma-delimited two-column csv
@@ -13,8 +15,20 @@ where
 
 
 
-
 You can also import the module in a python environment
 
+>>
 import fillgaps as fg
 fg.fillgaps("filename.csv","results.csv")
+>>
+
+
+DEPENDENCIES:
+You must import the following packages into your python environment:
+numpy
+copy
+csv
+matplotlib
+scipy
+itertools
+operator

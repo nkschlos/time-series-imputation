@@ -70,11 +70,7 @@ def fillgaps(datafile, savefile = "NaN", plotresults = True):
         fig, ax = plt.subplots(2, figsize=(12, 8))
         ax[0].set_title("Original Data")
         ax[0].scatter(x, y, marker = '.')
-        #ax[0].scatter(xfilled, filter_all(data),alpha=.3, marker ='.')
         ax[0].grid(True)
-        #ax[0].set_xlabel("MJD")
-        ax[0].set_ylabel("Residuals (us)")
-        #ax[0].legend(["Data","Filtered Data used for Endpoint Matching"])
    
 
     # find indeces of data gaps and largest continuous run of data
@@ -172,8 +168,6 @@ def fillgaps(datafile, savefile = "NaN", plotresults = True):
     if plotresults:
         ax[1].scatter(xfilled, data, marker='.')
         ax[1].grid(True)
-        ax[1].set_xlabel("MJD")
-        ax[1].set_ylabel("Residuals (us)")
         ax[1].set_title("Recovered Data")
         plt.show()  # displays graphs of data before/after imputation
 
